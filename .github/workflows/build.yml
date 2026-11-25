@@ -1,0 +1,51 @@
+
+name: Build ByeDPI for Raspberry Pi 3
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout ByeDPI
+        uses: actions/checkout@v4
+        with:
+          repository: hufrea/byedpi
+          ref: main
+          path: source
+
+      - name: Install ARM cross compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-linux-gnueabihf
+
+      - name: Build ARMv7
+        run: |
+          cd source
+          make clean || true
+          make CC=arm-linux-gnueabihf-gcc \
+            CFLAGS="-O2 -march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=hard"
+
+      - name: Verify binary
+        run: |
+          file source/ciadpi
+          arm-linux-gnueabihf-readelf -h source/ciadpi
+
+      - name: Package
+        run: |
+          mkdir -p artifact
+          cp source/ciadpi artifact/
+          cp source/LICENSE artifact/
+          tar -czf byedpi-armv7.tar.gz -C artifact .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: byedpi-armv7
+          path: byedpi-armv7.tar.gz
+          retention-days: 7
